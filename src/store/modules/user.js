@@ -1,12 +1,14 @@
 import { login, logout, getInfo } from '@/api/user'
 import { getToken, setToken, removeToken } from '@/utils/auth'
 import { resetRouter } from '@/router'
+import Cookies from 'js-cookie'
 
 const getDefaultState = () => {
   return {
     token: getToken(),
     name: '',
-    avatar: ''
+    avatar: '',
+    userInfo: {}
   }
 }
 
@@ -19,6 +21,9 @@ const mutations = {
   SET_TOKEN: (state, token) => {
     state.token = token
   },
+  SET_ROLES: (state, roles) => {
+    state.roles = roles
+  },
   SET_NAME: (state, name) => {
     state.name = name
   },
@@ -30,12 +35,24 @@ const mutations = {
 const actions = {
   // user login
   login({ commit }, userInfo) {
-    const { username, password } = userInfo
+    const { account, password } = userInfo
     return new Promise((resolve, reject) => {
-      login({ username: username.trim(), password: password }).then(response => {
-        const { data } = response
-        commit('SET_TOKEN', data.token)
-        setToken(data.token)
+      login({ account: account.trim(), password: password }).then(response => {
+        // 本来数据应该在这里拿
+        // const {data} = response
+        console.log(response);
+        // 伪装数据
+        const data = {
+          userInfo: {
+            roles: ["admin"],
+            introduction: "I am a super administrator",
+            avatar: "https://wpimg.wallstcn.com/f778738c-e4f8-4870-b634-56703b4acafe.gif",
+            nickname: response.rows.nickname
+          },
+        }
+        commit('SET_TOKEN', "admin-token")
+        setToken("admin-token")
+        Cookies.set("userInfo", data.userInfo)
         resolve()
       }).catch(error => {
         reject(error)
@@ -43,28 +60,19 @@ const actions = {
     })
   },
 
-  // get user info
+  // 获取用户数据
   getInfo({ commit, state }) {
     return new Promise((resolve, reject) => {
-      getInfo(state.token).then(response => {
-        const { data } = response
-
-        if (!data) {
-          return reject('Verification failed, please Login again.')
-        }
-
-        const { name, avatar } = data
-
-        commit('SET_NAME', name)
-        commit('SET_AVATAR', avatar)
-        resolve(data)
-      }).catch(error => {
-        reject(error)
-      })
+      const data = JSON.parse(Cookies.get("userInfo"))
+      const { nickname, avatar, roles } = data
+      commit('SET_NAME', nickname)
+      commit('SET_AVATAR', avatar)
+      commit('SET_ROLES', roles)
+      resolve(data)
     })
   },
 
-  // user logout
+  // 退出登录
   logout({ commit, state }) {
     return new Promise((resolve, reject) => {
       logout(state.token).then(() => {
